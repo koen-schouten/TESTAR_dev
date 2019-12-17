@@ -49,6 +49,7 @@ public class Protocol_desktop_generic extends DesktopProtocol {
 	 */
 	@Override
 	protected void initialize(Settings settings){
+		
 		super.initialize(settings);
 	}
 
