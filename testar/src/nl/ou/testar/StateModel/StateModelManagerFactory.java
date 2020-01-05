@@ -71,6 +71,10 @@ public class StateModelManagerFactory {
                 persistenceManager instanceof StateModelEventListener ? (StateModelEventListener) persistenceManager : null);
         ActionSelector actionSelector = CompoundFactory.getCompoundActionSelector();
 
+        if (settings.get(ConfigTags.StateModelReinforcementLearningEnabled)) {
+            return new ModelManagerReinforcementLearning(abstractStateModel, actionSelector, persistenceManager, concreteStateTags, sequenceManager);
+        }
+
         return new ModelManager(abstractStateModel, actionSelector, persistenceManager, concreteStateTags, sequenceManager);
     }
 

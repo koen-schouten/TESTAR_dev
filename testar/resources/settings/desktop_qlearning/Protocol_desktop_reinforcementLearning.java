@@ -29,17 +29,11 @@ package desktop_qlearning;
  */
 
 
-import com.google.common.collect.Multimap;
-import nl.ou.testar.ReinforcementLearning.ActionSelector;
+import nl.ou.testar.ReinforcementLearning.ActionSelectors.ActionSelector;
 import nl.ou.testar.ReinforcementLearning.GuiStateGraphForQlearning;
-import nl.ou.testar.ReinforcementLearning.QFunctions.QLearningQFunction;
-import nl.ou.testar.ReinforcementLearning.QLearningActionSelector;
-import nl.ou.testar.ReinforcementLearning.RewardFunctions.QLearningRewardFunction;
+import nl.ou.testar.ReinforcementLearning.ActionSelectors.ReinforcementLearningActionSelector;
 import org.fruit.alayer.Action;
-import org.fruit.alayer.SUT;
 import org.fruit.alayer.State;
-import org.fruit.alayer.exceptions.StateBuildException;
-import org.fruit.monkey.ConfigTags;
 import org.fruit.monkey.Settings;
 import org.testar.protocols.DesktopProtocol;
 
@@ -48,37 +42,27 @@ import javax.annotation.Nullable;
 import java.util.Set;
 
 /**
- * This is a small change to Desktop Generic Protocol to use a simple in-memory state model
- * and Q-learning to improve the action selection.
- *
- * It also creates an HTML report of the sequences with screenshots of the GUI states.
+ * This is a small change to Desktop Generic Protocol to use reinforcement learning to improve action selection
  *
  *  It changes the initialize() and selectAction() methods.
  */
-public class Protocol_desktop_qlearning extends DesktopProtocol {
-	private State fromState;
-	private Action action;
+public class Protocol_desktop_reinforcementLearning extends DesktopProtocol {
 	private ActionSelector actionSelector;
 
-	//TODO remove
-	private final double R_MAX = settings.get(ConfigTags.MaxReward);
-	private final double GAMMA_DISCOUNT = settings.get(ConfigTags.Discount);
-
-	/** 
+	/**
 	 * Called once during the life time of TESTAR
 	 * This method can be used to perform initial setup work
 	 * @param settings the current TESTAR settings as specified by the user.
 	 */
 	@Override
-	protected void initialize(Settings settings){
-		// initializing simple GUI state graph for Q-learning:
-		// this implementation uses concreteStateID for state abstraction, so it may find too many states:
-		actionSelector = new QLearningActionSelector(settings, new QLearningRewardFunction(), new QLearningQFunction(settings), new GuiStateGraphForQlearning(R_MAX, GAMMA_DISCOUNT));
+	protected void initialize(@Nonnull final Settings settings){
+		// TODO replace with factory
+		actionSelector = new ReinforcementLearningActionSelector(new GuiStateGraphForQlearning());
 		super.initialize(settings);
 	}
 
 	/**
-	 * Select one of the available actions using an action selection algorithm (for example random action selection)
+	 * Select one of the available actions using a reinforcement learning action selection algorithm
 	 *
 	 * Normally super.selectAction(state, actions) updates information to the HTML sequence report, but since we
 	 * overwrite it, not always running it, we have take care of the HTML report here
@@ -89,41 +73,15 @@ public class Protocol_desktop_qlearning extends DesktopProtocol {
 	 */
 	@Override
 	@Nullable
-	protected Action selectAction(@Nonnull State state, @Nonnull Set<Action> actions){
-		Action actionToExecute;
-		fromState = state;
-
+	protected Action selectAction(@Nonnull final State state, @Nonnull final Set<Action> actions){
 		//Call the preSelectAction method from the DefaultProtocol so that, if necessary,
 		//unwanted processes are killed and SUT is put into foreground.
-		Action preSelectedAction = preSelectAction(state, actions);
+		final Action preSelectedAction = preSelectAction(state, actions);
 		if (preSelectedAction != null) {
-			actionToExecute = preSelectedAction;
-			return actionToExecute;
+			return preSelectedAction;
 		}
 
-		// select action based on algorithm
-		actionToExecute =  actionSelector.selectAction(state, actions);
-
-		action = actionToExecute;
-		return actionToExecute;
+		// select action based on state and set of actions
+		return  actionSelector.selectAction(state, actions);
 	}
-
-	/**
-	 * This method gets the state of the SUT
-	 * It also call getVerdict() and saves it into the state
-	 *
-	 * @param system
-	 * @return
-	 * @throws StateBuildException
-	 */
-	@Override
-	protected State getState(SUT system) throws StateBuildException {
-		State toState = super.getState(system);
-
-		// save q-values
-		actionSelector.updateQValue(fromState, toState, action);
-
-		return toState;
-	}
-
 }
