@@ -90,6 +90,7 @@ public class StateModelPanel extends JPanel {
     private JButton stateTagsButton = new JButton("Advanced");
     private AbstractStateSettings stateTagsDialog;
     private JButton analysisButton = new JButton("Analysis");
+    private JButton modelDiffbutton = new JButton("Model Diff");
     private Tag<?>[] allStateManagementTags;
     private Tag<?>[] selectedStateManagementTags;
 
@@ -132,6 +133,7 @@ public class StateModelPanel extends JPanel {
         components.add(stateTagsButton);
         components.add(actionSelectionBox);
         components.add(stateModelWidgetStoreChkBox);
+        components.add(modelDiffbutton);
 
         // add the components to the panel
         setLayout(null);
@@ -245,6 +247,17 @@ public class StateModelPanel extends JPanel {
 
         label14.setBounds(330, 280, 300, 27);
         add(label14);
+        
+        modelDiffbutton.setBounds(330, 320, 150, 27);
+        modelDiffbutton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+            	ModelDifferenceDialog importDBdialog = new ModelDifferenceDialog(
+            			dataStoreTypeBox.getSelectedItem().toString(), dataStoreServerTextfield.getText());
+            	importDBdialog.setVisible(true);
+            }
+        });
+        add(modelDiffbutton);
 
     }
 
