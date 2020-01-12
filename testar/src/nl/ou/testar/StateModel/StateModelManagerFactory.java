@@ -66,7 +66,7 @@ public class StateModelManagerFactory {
         // should we store widgets?
         boolean storeWidgets = settings.get(ConfigTags.StateModelStoreWidgets);
 
-        if (settings.get(ConfigTags.StateModelReinforcementLearningEnabled)) {
+        if (true || settings.get(ConfigTags.StateModelReinforcementLearningEnabled)) {
             return new ModelManagerReinforcementLearning(abstractStateModel, actionSelector, persistenceManager, concreteStateTags, sequenceManager, storeWidgets);
         }
 
