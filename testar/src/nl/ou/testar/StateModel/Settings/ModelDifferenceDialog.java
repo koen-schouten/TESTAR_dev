@@ -2,11 +2,6 @@ package nl.ou.testar.StateModel.Settings;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
-
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
@@ -14,176 +9,14 @@ import javax.swing.JLabel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 
-import com.orientechnologies.orient.core.db.ODatabaseSession;
-import com.orientechnologies.orient.core.db.OrientDB;
-import com.orientechnologies.orient.core.db.OrientDBConfig;
-import com.orientechnologies.orient.core.metadata.schema.OType;
-import com.orientechnologies.orient.core.record.ODirection;
-import com.orientechnologies.orient.core.record.OVertex;
-import com.orientechnologies.orient.core.sql.executor.OResult;
-import com.orientechnologies.orient.core.sql.executor.OResultSet;
-
-import nl.ou.testar.StateModel.Persistence.OrientDB.Entity.Config;
+import nl.ou.testar.StateModel.ModelDifferenceManager;
 
 public class ModelDifferenceDialog extends JDialog {
 	
 	private static final long serialVersionUID = 7890181945543399039L;
 
-	// orient db instance that will create database sessions
-	private transient OrientDB orientDB;
-
-	// orient db configuration object
-	private transient Config dbConfig;
-
 	public ModelDifferenceDialog(String storeType, String storeServer) {
 		initialize(storeType, storeServer);
-	}
-
-	private void calculateModelDifference() {
-		String appNameOne, appVerOne, appNameTwo, appVerTwo = "";
-		if((appNameOne = textApplicationNameOne.getText())==null || (appVerOne = textApplicationVersionOne.getText())==null
-				|| (appNameTwo = textApplicationNameTwo.getText())==null || (appVerTwo = textApplicationVersionTwo.getText())==null)
-			return;
-
-		String dbConnection = connectionStuff();
-
-		try (ODatabaseSession sessionDB = orientDB.open(dbConnection, dbConfig.getUser(), dbConfig.getPassword())){
-
-			String modelIdOne = AbstractStateModelInfo(sessionDB, appNameOne, appVerOne);
-			Set<String> abstractStateOne = new HashSet<>(abstractState(sessionDB, modelIdOne));
-			
-			String modelIdTwo = AbstractStateModelInfo(sessionDB, appNameTwo, appVerTwo);
-			Set<String> abstractStateTwo = new HashSet<>(abstractState(sessionDB, modelIdTwo));
-			
-			System.out.println("\n ---- DISSAPEARED ABSTRACT STATES ----");
-			for(String s : abstractStateOne)
-				if(!abstractStateTwo.contains(s))
-					System.out.println(s);
-			
-			System.out.println("\n ---- NEW ABSTRACT STATES ----");
-			for(String s : abstractStateTwo)
-				if(!abstractStateOne.contains(s))
-					System.out.println(s);
-			
-		}catch(Exception e) {
-			e.printStackTrace();
-		} finally {
-			orientDB.close();
-		}
-
-	}
-	
-	private String AbstractStateModelInfo(ODatabaseSession sessionDB, String AppName, String AppVer) {
-		OResultSet resultSet = sessionDB.query("SELECT FROM AbstractStateModel where applicationName=\"" + AppName
-				+ "\" and applicationVersion=\"" + AppVer + "\"");
-
-		String modelIdentifier = "";
-		
-		while (resultSet.hasNext()) {
-			OResult result = resultSet.next();
-			// we're expecting a vertex
-			if (result.isVertex()) {
-				Optional<OVertex> op = result.getVertex();
-				if (!op.isPresent()) continue;
-				OVertex modelVertex = op.get();
-
-				System.out.println("StateModel: " + AppName + " " + AppVer);
-				System.out.println("Collecting DB State Model data...");
-
-				System.out.println("JSON: " + result.toJSON());
-				System.out.println("Edges: " + modelVertex.getEdges(ODirection.BOTH));
-				
-				modelIdentifier = modelVertex.getProperty("modelIdentifier");
-
-				break;
-			}
-		}
-		resultSet.close();
-		
-		return modelIdentifier;
-	}
-	
-	private Set<String> abstractState(ODatabaseSession sessionDB, String modelIdentifier) {
-		OResultSet resultSet = sessionDB.query("SELECT FROM AbstractState WHERE modelIdentifier = \"" 
-				+ modelIdentifier + "\"");
-
-		Set<String> abstractStates = new HashSet<>();
-		
-		System.out.println("**** Existing AbstractStates ****");
-		
-		while (resultSet.hasNext()) {
-			OResult result = resultSet.next();
-			// we're expecting a vertex
-			if (result.isVertex()) {
-				Optional<OVertex> op = result.getVertex();
-				if (!op.isPresent()) continue;
-				OVertex modelVertex = op.get();
-
-				System.out.println("JSON: " + result.toJSON());
-				System.out.println("Edges: " + modelVertex.getEdges(ODirection.BOTH));
-				abstractStates.add(modelVertex.getProperty("stateId"));
-			}
-		}
-		resultSet.close();
-		
-		return abstractStates;
-	}
-	
-	private void obtainAvailableDatabases() {
-		dbConfig = new Config();
-		dbConfig.setConnectionType(textFieldStoreType.getText());
-		dbConfig.setServer(textFieldStoreServer.getText());
-		dbConfig.setUser(textFieldRoot.getText());
-		dbConfig.setPassword(getPassword());
-
-		try{
-
-			listDatabases.removeAllItems();
-
-			orientDB = new OrientDB(dbConfig.getConnectionType() + ":" + dbConfig.getServer(), 
-					dbConfig.getUser(), dbConfig.getPassword(), OrientDBConfig.defaultConfig());
-
-			if(!orientDB.list().isEmpty())
-				for(String database : orientDB.list())
-					listDatabases.addItem(database);
-
-		}catch(Exception e) {
-			System.out.println(e.getMessage());
-		}finally {
-			orientDB.close();
-		}
-
-	}
-	
-	private String connectionStuff() {
-		dbConfig = new Config();
-		dbConfig.setConnectionType(textFieldStoreType.getText());
-		dbConfig.setServer(textFieldStoreServer.getText());
-		dbConfig.setUser(textFieldRoot.getText());
-		dbConfig.setPassword(getPassword());
-		dbConfig.setDatabase(listDatabases.getSelectedItem().toString());
-
-		orientDB = new OrientDB(dbConfig.getConnectionType() + ":" + dbConfig.getServer(), 
-				dbConfig.getUser(), dbConfig.getPassword(), OrientDBConfig.defaultConfig());
-
-		return dbConfig.getConnectionType() + ":" + dbConfig.getServer() + "/database/" + dbConfig.getDatabase();
-	}
-
-	/**
-	 * Convert password field to string.
-	 * @return password as String.
-	 */
-	private String getPassword() {
-		StringBuilder result= new StringBuilder();
-		for(char c : textFieldPassword.getPassword()) {
-			result.append(c);
-		}
-		return  result.toString();
-	}   
-
-	private void closeOrientDB() {
-		if(orientDB!=null && orientDB.isOpen())
-			orientDB.close();
 	}
 	
 	private JLabel labelStoreType = new JLabel("DataStoreType");
@@ -248,7 +81,9 @@ public class ModelDifferenceDialog extends JDialog {
 		buttonConnect.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				obtainAvailableDatabases();
+				ModelDifferenceManager.obtainAvailableDatabases(textFieldStoreType.getText(), 
+						textFieldStoreServer.getText(), textFieldRoot.getText(), getPassword(textFieldPassword),
+								listDatabases);
 			}
 		});
 		add(buttonConnect);
@@ -286,7 +121,11 @@ public class ModelDifferenceDialog extends JDialog {
 		buttonModelDiff.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				calculateModelDifference();
+				ModelDifferenceManager.calculateModelDifference(textFieldStoreType.getText(), 
+						textFieldStoreServer.getText(), textFieldRoot.getText(), getPassword(textFieldPassword),
+						listDatabases.getSelectedItem().toString(),
+						textApplicationNameOne.getText(), textApplicationVersionOne.getText(),
+						textApplicationNameTwo.getText(), textApplicationVersionTwo.getText());
 			}
 		});
 		add(buttonModelDiff);
@@ -295,7 +134,7 @@ public class ModelDifferenceDialog extends JDialog {
 		buttonCancel.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				closeOrientDB();
+				ModelDifferenceManager.closeOrientDB();
 				dispose();
 			}
 		});
@@ -304,9 +143,21 @@ public class ModelDifferenceDialog extends JDialog {
 		this.addWindowListener(new java.awt.event.WindowAdapter() {
 			@Override
 			public void windowClosing(java.awt.event.WindowEvent windowEvent) {
-				closeOrientDB();
+				ModelDifferenceManager.closeOrientDB();
 			}
 		});
 	}
+	
+	/**
+	 * Convert password field to string.
+	 * @return password as String.
+	 */
+	private static String getPassword(JPasswordField passField) {
+		StringBuilder result= new StringBuilder();
+		for(char c : passField.getPassword()) {
+			result.append(c);
+		}
+		return  result.toString();
+	}  
 	
 }
